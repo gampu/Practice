@@ -1,0 +1,89 @@
+/* C++ headers */
+#include<iostream>
+#include<vector>
+#include<string>
+#include<algorithm>
+#include<cstdlib>
+#include<cassert>
+#include<utility>
+
+/* C headers */
+#include<unistd.h>
+#include<string.h>
+#include<sys/time.h>
+#include<fcntl.h>
+#include<sys/utsname.h>
+#include<sys/ioctl.h>
+#include<sys/inotify.h>
+#include<sys/types.h>
+#include<sched.h>
+#include<signal.h>
+#include<pthread.h>
+#include<dirent.h>
+#include<aio.h>
+#include<sys/socket.h>
+#include<sys/un.h>
+
+/* UNIX domain TCP client */
+
+/* Environment pointer */
+char** environ;
+
+/* Error function */
+void err( const char* str )
+{
+    std::cout << errno << "\n";
+    perror( str );
+}
+
+const char *SOCKNAME = "/tmp/mysock\0";
+#define BACKLOG 5
+#define BUFSIZE 100
+char buf[ BUFSIZE ];
+
+int main( int argc, char* argv[] )
+{
+	/* Create a socket */
+	int sfd = socket( AF_UNIX, SOCK_STREAM, 0 );
+	if( sfd == -1 )
+	{
+		err( "sfd" );
+		return 0;
+	}
+
+	/* Set struct sockaddr_un for connect */
+	struct sockaddr_un addr;
+	memset( &addr, 0, sizeof( struct sockaddr_un ) );
+	addr.sun_family = AF_UNIX;
+	strncpy( addr.sun_path, SOCKNAME, sizeof( addr.sun_path ) - 1 );
+
+	/* Connect socket to SOCKNAME */
+	if( connect( sfd, ( struct sockaddr* )&addr, sizeof( struct sockaddr_un ) ) != 0 )
+	{
+		err( "connect" );
+		goto _error;
+	}
+
+	/* Send data to server once */
+	/* Transfer data to server from client's terminal */
+	int bytes;
+	while( ( bytes = read( STDIN_FILENO, buf, BUFSIZE ) ) > 0 )
+	{
+		if( write( sfd, buf, bytes ) != bytes )
+		{
+			err( "write" );
+			goto _error;
+		}
+	}
+	/* Error while reading from sfd */
+	if( bytes == -1 )
+	{
+		err( "read" );
+		goto _error;
+	}
+
+/* Release resources appropriately */
+_error:
+	close( sfd );
+    return 0;
+}
